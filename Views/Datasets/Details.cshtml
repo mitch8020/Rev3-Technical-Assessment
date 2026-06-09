@@ -1,0 +1,204 @@
+@model Rev3_Technical_Assessment.Models.DatasetDocument
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<section class="hero-band hero-band--compact">
+    <div class="hero-band__content">
+        <span class="eyebrow">Analysis record</span>
+        <h1>@Model.Name</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <p>@Model.Description</p>
+        }
+    </div>
+    <a class="button button--secondary" asp-action="Index">Back to dashboard</a>
+</section>
+
+<section class="detail-grid">
+    <aside class="summary-panel">
+        <span class="eyebrow">Processing status</span>
+        <div class="status-lockup">
+            <span id="statusBadge" class="status-pill">@Model.Status</span>
+            <strong id="status">@Model.Status</strong>
+        </div>
+        <p id="message" class="status-message">@Model.StatusMessage</p>
+
+        <div class="progress-track" aria-label="Analysis progress">
+            <div id="progressBar" class="progress-track__bar" style="width: @Model.Progress%">
+                <span>@Model.Progress%</span>
+            </div>
+        </div>
+
+        <dl class="metadata-list">
+            <div>
+                <dt>Source file</dt>
+                <dd>@Model.OriginalFileName</dd>
+            </div>
+            <div>
+                <dt>Uploaded</dt>
+                <dd>@Model.UploadedAt.LocalDateTime.ToString("MMM d, yyyy h:mm tt")</dd>
+            </div>
+            @if (Model.Tags.Count > 0)
+            {
+                <div>
+                    <dt>Tags</dt>
+                    <dd class="tag-list">
+                        @foreach (var tag in Model.Tags)
+                        {
+                            <span class="tag">@tag</span>
+                        }
+                    </dd>
+                </div>
+            }
+        </dl>
+    </aside>
+
+    <section class="analysis-panel">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">Time and duration distribution</span>
+                <h2>Call Heatmap</h2>
+            </div>
+        </div>
+        <div id="heatmap" class="heatmap-empty">Waiting for analysis output.</div>
+    </section>
+</section>
+
+<section class="data-surface">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">ML.NET KMeans</span>
+            <h2>Cluster Summary</h2>
+        </div>
+    </div>
+
+    <div class="table-scroll">
+        <table class="clinical-table">
+            <thead>
+                <tr>
+                    <th>Cluster</th>
+                    <th>Calls</th>
+                    <th>Average hour</th>
+                    <th>Average minutes</th>
+                </tr>
+            </thead>
+            <tbody id="clusters">
+                <tr>
+                    <td colspan="4" class="muted-row">Analysis results will appear here.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+    const datasetId = "@Model.id";
+
+    const statusClasses = {
+        Completed: "status-pill status-pill--complete",
+        Running: "status-pill status-pill--running",
+        Queued: "status-pill status-pill--queued",
+        Failed: "status-pill status-pill--failed"
+    };
+
+    async function pollProgress() {
+        const response = await fetch(`/Datasets/Progress/${datasetId}`);
+        const data = await response.json();
+
+        document.getElementById("status").innerText = data.status;
+        document.getElementById("message").innerText = data.message ?? "";
+
+        const statusBadge = document.getElementById("statusBadge");
+        statusBadge.innerText = data.status;
+        statusBadge.className = statusClasses[data.status] ?? "status-pill";
+
+        const progressBar = document.getElementById("progressBar");
+        progressBar.style.width = `${data.progress}%`;
+        progressBar.querySelector("span").innerText = `${data.progress}%`;
+
+        if (data.status === "Completed" && data.result) {
+            renderHeatmap(data.result.heatmap);
+            renderClusters(data.result.clusters);
+            return;
+        }
+
+        if (data.status === "Failed") {
+            document.getElementById("heatmap").innerText = "Analysis failed. Review the status message for details.";
+            return;
+        }
+
+        setTimeout(pollProgress, 800);
+    }
+
+    function renderClusters(clusters) {
+        const tbody = document.getElementById("clusters");
+        tbody.innerHTML = "";
+
+        if (!clusters.length) {
+            tbody.innerHTML = `<tr><td colspan="4" class="muted-row">No clusters were generated.</td></tr>`;
+            return;
+        }
+
+        for (const cluster of clusters) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td><span class="cluster-chip">Cluster ${cluster.clusterId}</span></td>
+                <td>${cluster.count}</td>
+                <td>${cluster.averageHour.toFixed(2)}</td>
+                <td>${cluster.averageCallMinutes.toFixed(2)}</td>
+            `;
+            tbody.appendChild(row);
+        }
+    }
+
+    function renderHeatmap(cells) {
+        const container = document.getElementById("heatmap");
+        container.innerHTML = "";
+        container.className = "heatmap-wrap";
+
+        if (!cells.length) {
+            container.className = "heatmap-empty";
+            container.innerText = "No heatmap data available.";
+            return;
+        }
+
+        const maxCount = Math.max(...cells.map(c => c.count));
+        const buckets = [...new Set(cells.map(c => c.minuteBucketStart))].sort((a, b) => a - b);
+
+        const table = document.createElement("table");
+        table.className = "heatmap-table";
+
+        const header = document.createElement("tr");
+        header.innerHTML = "<th>Min / Hour</th>" +
+            Array.from({ length: 24 }, (_, hour) => `<th>${hour}</th>`).join("");
+        table.appendChild(header);
+
+        for (const bucket of buckets) {
+            const row = document.createElement("tr");
+            row.innerHTML = `<th>${bucket}-${bucket + 4}</th>`;
+
+            for (let hour = 0; hour < 24; hour++) {
+                const cell = cells.find(c => c.hour === hour && c.minuteBucketStart === bucket);
+                const count = cell?.count ?? 0;
+                const intensity = maxCount === 0 ? 0 : count / maxCount;
+                const heat = count === 0 ? 0 : 0.16 + (intensity * 0.78);
+                const textColor = intensity > 0.55 ? "#ffffff" : "var(--ink)";
+
+                row.innerHTML += `
+                    <td title="${count} calls, ${cell?.averageMinutes?.toFixed(1) ?? 0} average minutes"
+                        data-count="${count}"
+                        style="--heat: ${heat}; color: ${textColor}">
+                        ${count || ""}
+                    </td>`;
+            }
+
+            table.appendChild(row);
+        }
+
+        container.appendChild(table);
+    }
+
+    pollProgress();
+</script>

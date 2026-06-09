@@ -1,0 +1,112 @@
+@model List<Rev3_Technical_Assessment.Models.DatasetDocument>
+
+@{
+    ViewData["Title"] = "Nurse Call Dashboard";
+
+    var totalDatasets = Model.Count;
+    var completed = Model.Count(x => x.Status == "Completed");
+    var running = Model.Count(x => x.Status == "Running" || x.Status == "Queued");
+    var failed = Model.Count(x => x.Status == "Failed");
+    var latest = Model.OrderByDescending(x => x.UploadedAt).ToList();
+
+    string StatusClass(string status) => status switch
+    {
+        "Completed" => "status-pill status-pill--complete",
+        "Running" => "status-pill status-pill--running",
+        "Queued" => "status-pill status-pill--queued",
+        "Failed" => "status-pill status-pill--failed",
+        _ => "status-pill"
+    };
+}
+
+<section class="hero-band">
+    <div class="hero-band__content">
+        <span class="eyebrow">Clinical operations analytics</span>
+        <h1>Nurse Call Intelligence</h1>
+        <p>Operational view for nurse call timing, duration, and workload clusters.</p>
+    </div>
+    <div class="hero-signal" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <a class="button button--primary" asp-action="Upload">Upload CSV</a>
+</section>
+
+<section class="metric-grid" aria-label="Dataset summary">
+    <div class="metric-tile">
+        <span class="metric-tile__label">Datasets</span>
+        <strong>@totalDatasets</strong>
+    </div>
+    <div class="metric-tile">
+        <span class="metric-tile__label">Completed</span>
+        <strong>@completed</strong>
+    </div>
+    <div class="metric-tile">
+        <span class="metric-tile__label">In process</span>
+        <strong>@running</strong>
+    </div>
+    <div class="metric-tile metric-tile--alert">
+        <span class="metric-tile__label">Failed</span>
+        <strong>@failed</strong>
+    </div>
+</section>
+
+<section class="data-surface">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">Dataset registry</span>
+            <h2>Analysis Queue</h2>
+        </div>
+    </div>
+
+    @if (latest.Count == 0)
+    {
+        <div class="empty-state">
+            <strong>No nurse call datasets yet.</strong>
+            <a class="button button--secondary" asp-action="Upload">Upload CSV</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-scroll">
+            <table class="clinical-table">
+                <thead>
+                    <tr>
+                        <th>Dataset</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Uploaded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dataset in latest)
+                    {
+                        <tr>
+                            <td>
+                                <a class="dataset-link" asp-action="Details" asp-route-id="@dataset.id">
+                                    @dataset.Name
+                                </a>
+                                <div class="dataset-meta">
+                                    <span>@dataset.OriginalFileName</span>
+                                    @foreach (var tag in dataset.Tags.Take(3))
+                                    {
+                                        <span class="tag">@tag</span>
+                                    }
+                                </div>
+                            </td>
+                            <td><span class="@StatusClass(dataset.Status)">@dataset.Status</span></td>
+                            <td>
+                                <div class="mini-progress" aria-label="@dataset.Progress percent complete">
+                                    <span style="width: @dataset.Progress%"></span>
+                                </div>
+                                <span class="progress-value">@dataset.Progress%</span>
+                            </td>
+                            <td>@dataset.UploadedAt.LocalDateTime.ToString("MMM d, yyyy h:mm tt")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

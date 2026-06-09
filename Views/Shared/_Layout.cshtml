@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Rev3 Clinical Analytics</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="clinical-app">
+    <header class="topbar">
+        <nav class="topbar__inner" aria-label="Primary">
+            <a class="brand" asp-area="" asp-controller="Datasets" asp-action="Index" aria-label="Rev3 Clinical Analytics home">
+                <span class="brand__mark">R3</span>
+                <span class="brand__copy">
+                    <span class="brand__name">Rev3 Clinical Analytics</span>
+                    <span class="brand__line">Nurse call intelligence</span>
+                </span>
+            </a>
+
+            <div class="nav-actions">
+                <a class="nav-link" asp-area="" asp-controller="Datasets" asp-action="Index">Dashboard</a>
+                <a class="button button--primary button--small" asp-area="" asp-controller="Datasets" asp-action="Upload">Upload CSV</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="app-main" role="main">
+        <div class="page-frame">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <div class="page-frame app-footer__inner">
+            <span>Rev3 Technical Assessment</span>
+            <span>ASP.NET MVC | Azure Blob Storage | Cosmos DB | ML.NET</span>
+        </div>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

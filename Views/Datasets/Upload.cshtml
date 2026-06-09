@@ -1,0 +1,49 @@
+@model Rev3_Technical_Assessment.ViewModels.DatasetUploadViewModel
+
+@{
+    ViewData["Title"] = "Upload Dataset";
+}
+
+<section class="hero-band hero-band--compact">
+    <div class="hero-band__content">
+        <span class="eyebrow">New analysis</span>
+        <h1>Upload Nurse Call CSV</h1>
+        <p>Attach call records and clinical context for the ML analysis queue.</p>
+    </div>
+    <a class="button button--secondary" asp-action="Index">Back to dashboard</a>
+</section>
+
+<section class="form-surface">
+    <form asp-action="Upload" method="post" enctype="multipart/form-data" class="clinical-form">
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="form-grid">
+            <div class="field">
+                <label asp-for="Name">Dataset name</label>
+                <input asp-for="Name" autocomplete="off" placeholder="June nurse calls" />
+                <span asp-validation-for="Name" class="field-validation"></span>
+            </div>
+
+            <div class="field">
+                <label asp-for="Tags">Tags</label>
+                <input asp-for="Tags" autocomplete="off" placeholder="unit-a, evening-shift" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label asp-for="Description">Description</label>
+            <textarea asp-for="Description" rows="4" placeholder="Floor, unit, shift, or sampling notes"></textarea>
+        </div>
+
+        <div class="file-field">
+            <label asp-for="CsvFile">CSV file</label>
+            <input asp-for="CsvFile" type="file" accept=".csv,text/csv" />
+            <span asp-validation-for="CsvFile" class="field-validation"></span>
+        </div>
+
+        <div class="form-actions">
+            <button class="button button--primary" type="submit">Upload and Analyze</button>
+            <a class="button button--ghost" asp-action="Index">Cancel</a>
+        </div>
+    </form>
+</section>
